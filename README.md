@@ -2,6 +2,20 @@
 
 Twitch のチャットを [VOICEVOX](https://voicevox.hiroshiba.jp/) エンジンで読み上げる Windows 向けデスクトップアプリです（.NET 8 / WPF）。
 
+## スクリーンショット
+
+### メイン画面
+
+![メイン画面](screenshots/screenshot_main.png)
+
+### オプション
+
+![オプション](screenshots/screenshot_settings.png)
+
+### チャットコマンド一覧
+
+![チャットコマンド一覧](screenshots/screenshot_chatcommand_help.png)
+
 ## 必要なもの
 
 - Windows 10/11
