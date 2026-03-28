@@ -12,17 +12,19 @@ public partial class ChatCommandsHelpWindow : Window
         BodyText.Text = ChatCommandsHelpContent.BuildCopyPasteDocument();
     }
 
-    private void CopyAll_Click(object sender, RoutedEventArgs e)
+    private async void CopyAll_Click(object sender, RoutedEventArgs e)
     {
-        try
+        var text = BodyText.Text;
+        var (ok, err) = await ClipboardHelper.TrySetTextAsync(text).ConfigureAwait(true);
+        if (ok)
         {
-            Clipboard.SetText(BodyText.Text);
             MessageBox.Show(this, "クリップボードにコピーしました。", "チャットコマンド一覧",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
-        catch (Exception ex)
+        else
         {
-            MessageBox.Show(this, ex.Message, "コピーに失敗しました", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, err ?? "コピーに失敗しました。", "チャットコマンド一覧",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
