@@ -1,0 +1,17 @@
+<Window x:Class="YomiVox.SpeakerStylesHelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="話者とスタイル一覧"
+        Height="560" Width="440"
+        MinHeight="320" MinWidth="360"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <DockPanel Margin="14">
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="#444" FontSize="12">
+            VOICEVOX から取得した話者キャラとスタイルです。一覧が空のときは「ツール」→「オプション」→「全般」で「話者を再取得」してください。
+        </TextBlock>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <TextBlock x:Name="BodyText" FontFamily="Segoe UI" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

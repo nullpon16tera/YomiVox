@@ -1,0 +1,105 @@
+<Window x:Class="YomiVox.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="YomiVox — Twitch × VOICEVOX"
+        Height="640" Width="720"
+        MinHeight="420" MinWidth="520">
+    <DockPanel Margin="12">
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="ファイル(_F)">
+                <MenuItem Header="終了(_X)" Click="ExitApplication_Click"/>
+            </MenuItem>
+            <MenuItem Header="ツール(_T)">
+                <MenuItem Header="カスタムコマンド(_C)..." Click="OpenCustomCommands_Click"/>
+                <Separator/>
+                <MenuItem Header="オプション(_O)..." Click="OpenSettings_Click"/>
+            </MenuItem>
+            <MenuItem Header="ヘルプ(_H)">
+                <MenuItem Header="話者とスタイル一覧(_S)..." Click="OpenSpeakerStylesHelp_Click"/>
+                <MenuItem Header="チャットコマンド一覧(_C)..." Click="OpenChatCommandsHelp_Click"/>
+                <Separator/>
+                <MenuItem Header="バージョン情報(_V)..." Click="ShowAboutVersion_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,4,0,10" Foreground="#444" FontSize="12">
+            メインではチャンネルとチャットを表示します。Twitch・VOICEVOX・音声は「ツール」→「オプション」から。
+        </TextBlock>
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                <TextBlock DockPanel.Dock="Left" Text="配信 URL" Width="140" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <Button x:Name="OpenStreamUrlBtn" DockPanel.Dock="Right" Content="開く" Click="OpenStreamUrl_Click"
+                        Padding="12,6" Margin="8,0,0,0" ToolTip="既定のブラウザで開きます"/>
+                <TextBox x:Name="StreamUrlBox" VerticalAlignment="Center"
+                         ToolTip="視聴用の配信ページ（例: https://www.twitch.tv/yourchannel）"/>
+            </DockPanel>
+            <TextBlock Text="接続チャンネル（1行に1つ・各行で「接続」「切断」）" Margin="0,0,0,6" Foreground="#333" FontSize="12"/>
+            <ItemsControl x:Name="ChannelRowsPanel" MinHeight="56" MaxHeight="200" Margin="0,0,0,6"
+                          ToolTip="各行の左の欄に URL またはチャンネル名を入力し、「接続」でそのチャンネルのチャットだけ参加します。">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="0,3">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Content="接続" Click="ConnectChannelRow_Click" Padding="10,4" MinWidth="52"
+                                        VerticalAlignment="Center"
+                                        IsEnabled="{Binding IsChannelUiEditable}"/>
+                                <Button Content="切断" Click="DisconnectChannelRow_Click" Padding="10,4" MinWidth="52"
+                                        Margin="6,0,0,0" VerticalAlignment="Center"
+                                        IsEnabled="{Binding CanDisconnect}"/>
+                                <Button Content="削除" Click="RemoveChannelRow_Click" Padding="10,4" Margin="6,0,0,0"
+                                        MinWidth="56" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"
+                                     MinHeight="26" FontSize="13" IsEnabled="{Binding IsChannelUiEditable}"
+                                     ToolTip="例: https://www.twitch.tv/yourchannel または yourchannel"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <Button x:Name="AddChannelRowBtn" Content="行を追加" HorizontalAlignment="Left" Click="AddChannelRow_Click"
+                        Padding="12,6"/>
+                <Button x:Name="DisconnectAllBtn" Content="すべて切断" Click="DisconnectAll_Click" Padding="12,6"
+                        Margin="8,0,0,0"/>
+            </StackPanel>
+            <TextBlock Foreground="#666" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                       Text="自分の配信だけ読み上げたいときは、その行だけ「接続」にしてください。複数行を接続すると、それぞれのチャットが混ざって表示されます。"/>
+        </StackPanel>
+
+        <GroupBox Header="チャット" Margin="0,0,0,0">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Bottom" LastChildFill="True" Margin="0,8,0,0">
+                    <Button x:Name="SendChatBtn" DockPanel.Dock="Right" Content="送信" MinWidth="80" Padding="12,6"
+                            Margin="8,0,0,0" Click="SendChat_Click" IsEnabled="False"/>
+                    <ComboBox x:Name="SendChannelCombo" DockPanel.Dock="Left" Width="168" Margin="0,0,8,0"
+                              VerticalAlignment="Center" IsEnabled="False"
+                              ToolTip="送信先チャンネル（複数接続時）"/>
+                    <TextBox x:Name="ChatSendBox" MinHeight="28" VerticalContentAlignment="Center"
+                             IsEnabled="False" ToolTip="接続後にチャットを送信できます（Enter でも送信）"
+                             KeyDown="ChatSendBox_KeyDown"/>
+                </DockPanel>
+                <ListBox x:Name="ChatList" FontFamily="Segoe UI" FontSize="13"
+                         Background="#FAFAFA" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.CanContentScroll="False">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="2,2,4,2"/>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                       FontFamily="Segoe UI" FontSize="13"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </GroupBox>
+    </DockPanel>
+</Window>
