@@ -3,8 +3,8 @@ using System.Linq;
 namespace YomiVox.Services;
 
 /// <summary>
-/// ユーザー名に VOICEVOX の「キャラ」を割り当て（アプリ終了まで固定）、
-/// スタイルは既定でノーマル。<see cref="TrySetStyle"/> で変更。
+/// ユーザー名に VOICEVOX の「キャラ」を割り当て、スタイルは !voice で変更。
+/// 割り当ては <see cref="PersistToSettings"/> で viewer_settings.json に保存し、再起動後も維持。
 /// </summary>
 public sealed class UserSpeakerMapper
 {
@@ -12,6 +12,60 @@ public sealed class UserSpeakerMapper
     private readonly Random _random = new();
     private readonly Dictionary<string, string> _userToCharacter = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _userToStyleName = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>保存済みの割当を読み込む（話者一覧取得後に呼ぶ。無効な行はスキップ）。</summary>
+    public void ApplyPersistedAssignments(IReadOnlyList<UserViewerVoiceAssignmentEntry>? entries,
+        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter)
+    {
+        if (stylesByCharacter.Count == 0 || entries == null || entries.Count == 0)
+            return;
+
+        lock (_lock)
+        {
+            foreach (var e in entries)
+            {
+                if (string.IsNullOrWhiteSpace(e.Login)) continue;
+                var login = NormalizeUser(e.Login);
+                if (_userToCharacter.ContainsKey(login)) continue;
+
+                var charName = e.CharacterName?.Trim() ?? "";
+                var styleName = e.StyleName?.Trim() ?? "";
+                if (string.IsNullOrEmpty(charName)) continue;
+
+                if (!TryFindCharacterKey(charName, stylesByCharacter, out var canonChar)) continue;
+                var styles = stylesByCharacter[canonChar];
+                if (!TryResolveStyleName(styles, styleName, out var canonStyle))
+                    canonStyle = FindDefaultStyleName(styles);
+
+                _userToCharacter[login] = canonChar;
+                _userToStyleName[login] = canonStyle;
+            }
+        }
+    }
+
+    /// <summary>現在の割当を viewer_settings.json に書き戻す（起動時の検証後に無効エントリを落とす用途でも可）。</summary>
+    public void PersistToSettings()
+    {
+        List<UserViewerVoiceAssignmentEntry> list;
+        lock (_lock)
+        {
+            list = new List<UserViewerVoiceAssignmentEntry>(_userToCharacter.Count);
+            foreach (var kv in _userToCharacter)
+            {
+                _userToStyleName.TryGetValue(kv.Key, out var st);
+                list.Add(new UserViewerVoiceAssignmentEntry
+                {
+                    Login = kv.Key.ToLowerInvariant(),
+                    CharacterName = kv.Value,
+                    StyleName = st ?? "ノーマル"
+                });
+            }
+        }
+
+        var v = ViewerSettingsStore.Load();
+        v.UserViewerVoiceAssignments = list;
+        ViewerSettingsStore.Save(v);
+    }
 
     public int GetSpeakerStyleId(string username,
         IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter)
@@ -22,9 +76,10 @@ public sealed class UserSpeakerMapper
         lock (_lock)
         {
             EnsureAssigned(username, stylesByCharacter);
-            var character = _userToCharacter[username];
+            var key = NormalizeUser(username);
+            var character = _userToCharacter[key];
             var styles = stylesByCharacter[character];
-            var styleName = _userToStyleName[username];
+            var styleName = _userToStyleName[key];
             return ResolveStyleId(styles, styleName);
         }
     }
@@ -39,7 +94,7 @@ public sealed class UserSpeakerMapper
         lock (_lock)
         {
             EnsureAssigned(username, stylesByCharacter);
-            return _userToCharacter[username];
+            return _userToCharacter[NormalizeUser(username)];
         }
     }
 
@@ -53,13 +108,15 @@ public sealed class UserSpeakerMapper
         lock (_lock)
         {
             EnsureAssigned(username, stylesByCharacter);
-            var character = _userToCharacter[username];
+            var key = NormalizeUser(username);
+            var character = _userToCharacter[key];
             var styles = stylesByCharacter[character];
 
             if (VoiceStyleKeyword.TryMatchByIndex(styles, keyword, out var byIndex, out var idx))
             {
-                _userToStyleName[username] = byIndex.StyleName;
+                _userToStyleName[key] = byIndex.StyleName;
                 message = $"読み上げスタイルを「{byIndex.StyleName}」に変更しました（!voice list の {idx} 番目）。";
+                PersistToSettings();
                 return true;
             }
 
@@ -69,8 +126,9 @@ public sealed class UserSpeakerMapper
                 return false;
             }
 
-            _userToStyleName[username] = matched.StyleName;
+            _userToStyleName[key] = matched.StyleName;
             message = $"読み上げスタイルを「{matched.StyleName}」に変更しました。";
+            PersistToSettings();
             return true;
         }
     }
@@ -83,9 +141,10 @@ public sealed class UserSpeakerMapper
         lock (_lock)
         {
             EnsureAssigned(username, stylesByCharacter);
-            var character = _userToCharacter[username];
+            var key = NormalizeUser(username);
+            var character = _userToCharacter[key];
             var styles = stylesByCharacter[character];
-            var current = _userToStyleName[username];
+            var current = _userToStyleName[key];
             var sorted = styles.OrderBy(s => s.Id).ToList();
             return sorted.Select((s, i) =>
                     $"{i + 1}. {s.StyleName} (id:{s.Id})" + (s.StyleName == current ? " ←現在" : ""))
@@ -105,13 +164,71 @@ public sealed class UserSpeakerMapper
     private void EnsureAssigned(string username,
         IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter)
     {
-        if (_userToCharacter.ContainsKey(username)) return;
+        var key = NormalizeUser(username);
+        if (_userToCharacter.ContainsKey(key)) return;
 
         var keys = stylesByCharacter.Keys.ToList();
         var pick = keys[_random.Next(keys.Count)];
-        _userToCharacter[username] = pick;
+        _userToCharacter[key] = pick;
         var styles = stylesByCharacter[pick];
-        _userToStyleName[username] = FindDefaultStyleName(styles);
+        _userToStyleName[key] = FindDefaultStyleName(styles);
+        PersistToSettings();
+    }
+
+    private static string NormalizeUser(string username) => username.Trim().ToLowerInvariant();
+
+    private static bool TryFindCharacterKey(string requested,
+        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter,
+        out string canonicalKey)
+    {
+        foreach (var kv in stylesByCharacter)
+        {
+            if (kv.Key.Equals(requested, StringComparison.OrdinalIgnoreCase))
+            {
+                canonicalKey = kv.Key;
+                return true;
+            }
+        }
+
+        foreach (var kv in stylesByCharacter)
+        {
+            if (kv.Key.Contains(requested, StringComparison.OrdinalIgnoreCase) ||
+                requested.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                canonicalKey = kv.Key;
+                return true;
+            }
+        }
+
+        canonicalKey = "";
+        return false;
+    }
+
+    private static bool TryResolveStyleName(IReadOnlyList<VoicevoxSpeakerStyle> styles, string styleName,
+        out string matched)
+    {
+        matched = "";
+        if (string.IsNullOrWhiteSpace(styleName)) return false;
+        var t = styleName.Trim();
+        foreach (var s in styles)
+        {
+            if (s.StyleName == t)
+            {
+                matched = s.StyleName;
+                return true;
+            }
+        }
+
+        foreach (var s in styles)
+        {
+            if (s.StyleName.Contains(t, StringComparison.Ordinal) || t.Contains(s.StyleName, StringComparison.Ordinal))
+            {
+                matched = s.StyleName;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string FindDefaultStyleName(IReadOnlyList<VoicevoxSpeakerStyle> styles)
@@ -135,5 +252,4 @@ public sealed class UserSpeakerMapper
 
         return styles[0].Id;
     }
-
 }

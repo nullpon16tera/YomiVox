@@ -101,8 +101,14 @@ public partial class MainWindow : Window
             var grouped = await _voicevox.GetSpeakerStylesGroupedAsync().ConfigureAwait(true);
             _speakerStylesByCharacter = grouped;
             _userSpeakers.Clear();
+            if (grouped.Count > 0)
+            {
+                _userSpeakers.ApplyPersistedAssignments(ViewerSettingsStore.Load().UserViewerVoiceAssignments, grouped);
+                _userSpeakers.PersistToSettings();
+            }
+
             AppendChatLine(
-                $"VOICEVOX: 話者キャラ {grouped.Count} 種を取得しました（各ユーザーはランダムでキャラ割当・スタイル既定はノーマル。!voice で変更）。");
+                $"VOICEVOX: 話者キャラ {grouped.Count} 種を取得しました（視聴者のキャラ・スタイルは保存され、次回起動後も継続。初回のみランダム。!voice で変更）。");
             if (_uiReady) SaveChannelOnly();
         }
         catch (Exception ex)
@@ -321,6 +327,12 @@ public partial class MainWindow : Window
         dlg.ShowDialog();
     }
 
+    private void OpenVoiceLibraryHelp_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new VoiceLibraryHelpWindow(this);
+        dlg.ShowDialog();
+    }
+
     private void ShowAboutVersion_Click(object sender, RoutedEventArgs e)
     {
         var asm = typeof(MainWindow).Assembly;
@@ -433,7 +445,7 @@ public partial class MainWindow : Window
     {
         if (!s.ReadChatUsernameAloud)
             return message;
-        var label = UserNameReadingStore.GetLabel(username, displayName, s);
+        var label = UserNameReadingStore.GetLabel(username, displayName);
         var tpl = string.IsNullOrWhiteSpace(s.UsernameSpeechTemplate)
             ? "{UserName} さん、"
             : s.UsernameSpeechTemplate.Trim();

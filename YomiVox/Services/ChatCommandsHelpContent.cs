@@ -47,6 +47,8 @@ public static class ChatCommandsHelpContent
             "・チャットの !voice speed などはログイン名ごとの上書きで、キャラ別設定より優先されます（!voice reset で個人分だけ消せます）。");
         sb.AppendLine(
             "・配信者の Twitch ログイン名・チャットボット用名は、本アプリの仕様により一部コマンドが使えません（実行時にチャットで案内します）。");
+        sb.AppendLine();
+        sb.AppendLine(VoiceLibraryHelpContent.BuildCopyPasteDocument().TrimEnd());
         return sb.ToString().TrimEnd() + Environment.NewLine;
     }
 }

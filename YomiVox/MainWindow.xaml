@@ -20,6 +20,7 @@
             <MenuItem Header="ヘルプ(_H)">
                 <MenuItem Header="話者とスタイル一覧(_S)..." Click="OpenSpeakerStylesHelp_Click"/>
                 <MenuItem Header="チャットコマンド一覧(_C)..." Click="OpenChatCommandsHelp_Click"/>
+                <MenuItem Header="音声ライブラリの利用規約・クレジット(_L)..." Click="OpenVoiceLibraryHelp_Click"/>
                 <Separator/>
                 <MenuItem Header="バージョン情報(_V)..." Click="ShowAboutVersion_Click"/>
             </MenuItem>

@@ -39,6 +39,7 @@ public sealed class VoicevoxClient : IDisposable
         foreach (var el in doc.RootElement.EnumerateArray())
         {
             var name = el.GetProperty("name").GetString() ?? "?";
+            if (VoiceLibraryPolicy.IsExcludedFromApp(name)) continue;
             foreach (var style in el.GetProperty("styles").EnumerateArray())
             {
                 var id = style.GetProperty("id").GetInt32();
@@ -62,6 +63,7 @@ public sealed class VoicevoxClient : IDisposable
         foreach (var el in doc.RootElement.EnumerateArray())
         {
             var name = el.GetProperty("name").GetString() ?? "?";
+            if (VoiceLibraryPolicy.IsExcludedFromApp(name)) continue;
             if (!dict.TryGetValue(name, out var list))
             {
                 list = new List<VoicevoxSpeakerStyle>();

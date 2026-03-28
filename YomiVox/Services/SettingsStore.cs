@@ -24,9 +24,7 @@ public static class SettingsStore
             var s = JsonSerializer.Deserialize<AppSettings>(json);
             if (s == null) return new AppSettings();
             s.CustomChatCommands ??= new List<CustomChatCommandEntry>();
-            s.UserNameReadings ??= new List<UserNameReadingEntry>();
             s.VoiceCharacterSynthOverrides ??= new List<VoiceCharacterSynthEntry>();
-            s.UserVoiceSynthOverrides ??= new List<UserVoiceSynthEntry>();
             s.TwitchChannelUrls ??= new List<string>();
             if (s.TwitchChannelUrls.Count == 0 && !string.IsNullOrWhiteSpace(s.ChannelUrl))
                 s.TwitchChannelUrls.Add(TwitchChannelParser.ParseToLoginName(s.ChannelUrl));

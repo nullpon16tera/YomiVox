@@ -56,12 +56,6 @@ public sealed class AppSettings
     /// <summary>ユーザー名部分のテンプレート。<c>{UserName}</c> は !readname の登録か Twitch ログイン名に置換。</summary>
     public string UsernameSpeechTemplate { get; set; } = "{UserName} さん、";
 
-    /// <summary>ログイン名ごとの読み上げ表記（!readname / !呼び で登録）。</summary>
-    public List<UserNameReadingEntry> UserNameReadings { get; set; } = new();
-
     /// <summary>話者キャラ名ごとの VOICEVOX 合成パラメータ（未設定の項目はエンジン既定）。</summary>
     public List<VoiceCharacterSynthEntry> VoiceCharacterSynthOverrides { get; set; } = new();
-
-    /// <summary>チャット（!voice speed 等）で保存したユーザー別の合成上書き。</summary>
-    public List<UserVoiceSynthEntry> UserVoiceSynthOverrides { get; set; } = new();
 }

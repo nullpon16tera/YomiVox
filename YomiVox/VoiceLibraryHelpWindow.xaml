@@ -1,0 +1,27 @@
+<Window x:Class="YomiVox.VoiceLibraryHelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="音声ライブラリの利用規約・クレジット"
+        Height="520" Width="640"
+        MinHeight="360" MinWidth="480"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <DockPanel Margin="14">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="クリップボードにコピー" Padding="14,8" MinWidth="160" Click="CopyAll_Click"/>
+            <Button Content="閉じる" IsCancel="True" Padding="14,8" MinWidth="90" Margin="8,0,0,0" Click="Close_Click"/>
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,10" Foreground="#444" FontSize="12">
+            公式の「VOICEVOX:話者名」形式の説明と、取得済み話者の短い行です。CV 等付きの全文は各利用規約ページを参照してください。Ctrl+A で全選択できます。
+        </TextBlock>
+        <TextBox x:Name="BodyText"
+                 IsReadOnly="True"
+                 TextWrapping="Wrap"
+                 AcceptsReturn="True"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Disabled"
+                 FontFamily="Segoe UI"
+                 FontSize="13"
+                 Padding="8"/>
+    </DockPanel>
+</Window>

@@ -16,22 +16,17 @@ public static class VoiceCharacterSynthSettings
         return null;
     }
 
-    public static VoiceCharacterSynthEntry? GetForUser(AppSettings s, string? twitchLogin)
+    /// <summary>チャットで保存したユーザー別合成（viewer_settings。辞書参照）。</summary>
+    public static VoiceCharacterSynthEntry? GetForUser(string? twitchLogin)
     {
         if (string.IsNullOrWhiteSpace(twitchLogin)) return null;
-        var key = twitchLogin.Trim();
-        foreach (var e in s.UserVoiceSynthOverrides ?? Enumerable.Empty<UserVoiceSynthEntry>())
-        {
-            if (!string.Equals(e.Login, key, StringComparison.OrdinalIgnoreCase)) continue;
-            var v = new VoiceCharacterSynthEntry();
-            v.SpeedScale = e.SpeedScale;
-            v.PitchScale = e.PitchScale;
-            v.IntonationScale = e.IntonationScale;
-            v.VolumeScale = e.VolumeScale;
-            return v.HasAnyOverride ? v : null;
-        }
-
-        return null;
+        if (!ViewerSettingsStore.TryGetVoiceSynthEntry(twitchLogin, out var e) || e == null) return null;
+        var ent = new VoiceCharacterSynthEntry();
+        ent.SpeedScale = e.SpeedScale;
+        ent.PitchScale = e.PitchScale;
+        ent.IntonationScale = e.IntonationScale;
+        ent.VolumeScale = e.VolumeScale;
+        return ent.HasAnyOverride ? ent : null;
     }
 
     /// <summary>キャラ別オプションとユーザー別チャット設定をマージ（ユーザー指定があればその項目を優先）。</summary>
@@ -61,10 +56,11 @@ public static class VoiceCharacterSynthSettings
         };
     }
 
-    public static VoiceCharacterSynthEntry? GetMergedForSynth(AppSettings s, string? characterName, string? twitchLogin)
+    public static VoiceCharacterSynthEntry? GetMergedForSynth(AppSettings app, string? characterName,
+        string? twitchLogin)
     {
-        var c = GetForCharacter(s, characterName);
-        var u = GetForUser(s, twitchLogin);
+        var c = GetForCharacter(app, characterName);
+        var u = GetForUser(twitchLogin);
         return Merge(c, u);
     }
 }
