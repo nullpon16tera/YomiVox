@@ -100,6 +100,7 @@ public sealed class UserSpeakerMapper
 
     public bool TrySetStyle(string username, string keyword,
         IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter,
+        bool dryRun,
         out string message)
     {
         message = "";
@@ -107,16 +108,34 @@ public sealed class UserSpeakerMapper
 
         lock (_lock)
         {
-            EnsureAssigned(username, stylesByCharacter);
             var key = NormalizeUser(username);
+            if (dryRun && !_userToCharacter.ContainsKey(key))
+            {
+                message =
+                    "視聴者としての声の割当がまだないため、!style の一覧は空です。読み上げが走ると割当が作られます。";
+                return false;
+            }
+
+            if (!dryRun)
+                EnsureAssigned(username, stylesByCharacter);
+            else if (!_userToCharacter.ContainsKey(key))
+            {
+                message = "割当がありません。";
+                return false;
+            }
+
             var character = _userToCharacter[key];
             var styles = stylesByCharacter[character];
 
             if (VoiceStyleKeyword.TryMatchByIndex(styles, keyword, out var byIndex, out var idx))
             {
-                _userToStyleName[key] = byIndex.StyleName;
+                if (!dryRun)
+                {
+                    _userToStyleName[key] = byIndex.StyleName;
+                    PersistToSettings();
+                }
+
                 message = $"読み上げスタイルを「{byIndex.StyleName}」に変更しました（!style list の {idx} 番目）。";
-                PersistToSettings();
                 return true;
             }
 
@@ -126,9 +145,13 @@ public sealed class UserSpeakerMapper
                 return false;
             }
 
-            _userToStyleName[key] = matched.StyleName;
+            if (!dryRun)
+            {
+                _userToStyleName[key] = matched.StyleName;
+                PersistToSettings();
+            }
+
             message = $"読み上げスタイルを「{matched.StyleName}」に変更しました。";
-            PersistToSettings();
             return true;
         }
     }
@@ -143,9 +166,10 @@ public sealed class UserSpeakerMapper
         return names.Select((n, i) => $"{i + 1}. {n}").ToList();
     }
 
-    /// <summary>!voice 〇〇 で話者キャラを変更。スタイルは新キャラの既定にリセット。</summary>
+    /// <summary>!voice 〇〇 で話者キャラを変更。スタイルは新キャラの既定にリセット。<paramref name="dryRun"/> 時は保存しない。</summary>
     public bool TrySetCharacter(string username, string keyword,
         IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter,
+        bool dryRun,
         out string message)
     {
         message = "";
@@ -176,9 +200,13 @@ public sealed class UserSpeakerMapper
 
             var styles = stylesByCharacter[canonChar];
             var defaultStyle = FindDefaultStyleName(styles);
-            _userToCharacter[key] = canonChar;
-            _userToStyleName[key] = defaultStyle;
-            PersistToSettings();
+            if (!dryRun)
+            {
+                _userToCharacter[key] = canonChar;
+                _userToStyleName[key] = defaultStyle;
+                PersistToSettings();
+            }
+
             message = $"話者を「{canonChar}」に変更しました（スタイルは「{defaultStyle}」に合わせました）。";
             return true;
         }
@@ -205,14 +233,22 @@ public sealed class UserSpeakerMapper
     }
 
     public IReadOnlyList<string> GetStyleListLines(string username,
-        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter)
+        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter,
+        bool dryRun = false)
     {
         if (stylesByCharacter.Count == 0) return Array.Empty<string>();
 
         lock (_lock)
         {
-            EnsureAssigned(username, stylesByCharacter);
             var key = NormalizeUser(username);
+            if (dryRun && !_userToCharacter.ContainsKey(key))
+                return Array.Empty<string>();
+
+            if (!dryRun)
+                EnsureAssigned(username, stylesByCharacter);
+            else if (!_userToCharacter.ContainsKey(key))
+                return Array.Empty<string>();
+
             var character = _userToCharacter[key];
             var styles = stylesByCharacter[character];
             var current = _userToStyleName[key];

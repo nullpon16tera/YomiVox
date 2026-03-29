@@ -475,7 +475,8 @@ public partial class MainWindow : Window
         return _userSpeakers.GetCharacterName(username, _speakerStylesByCharacter);
     }
 
-    private void HandleVoiceSynthCommand(string username, VoiceSynthSubKind kind, double? value, bool invalidNumber)
+    private void HandleVoiceSynthCommand(string username, VoiceSynthSubKind kind, double? value, bool invalidNumber,
+        bool dryRun = false)
     {
         if (_speakerStylesByCharacter.Count == 0)
         {
@@ -489,6 +490,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        string TagIfDry(string line) => dryRun ? $"{line} ※試行のみ（保存されません）" : line;
+
         switch (kind)
         {
             case VoiceSynthSubKind.Speed:
@@ -499,9 +502,10 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                UserVoiceSynthStore.SetSpeed(username, value.Value);
-                AppendChatLineMirrorTwitch(
-                    $"[{username}] 話速を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。");
+                if (!dryRun)
+                    UserVoiceSynthStore.SetSpeed(username, value.Value);
+                AppendChatLineMirrorTwitch(TagIfDry(
+                    $"[{username}] 話速を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。"));
                 return;
 
             case VoiceSynthSubKind.Pitch:
@@ -512,9 +516,10 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                UserVoiceSynthStore.SetPitch(username, value.Value);
-                AppendChatLineMirrorTwitch(
-                    $"[{username}] 音高を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。");
+                if (!dryRun)
+                    UserVoiceSynthStore.SetPitch(username, value.Value);
+                AppendChatLineMirrorTwitch(TagIfDry(
+                    $"[{username}] 音高を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。"));
                 return;
 
             case VoiceSynthSubKind.Intonation:
@@ -525,9 +530,10 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                UserVoiceSynthStore.SetIntonation(username, value.Value);
-                AppendChatLineMirrorTwitch(
-                    $"[{username}] 抑揚を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。");
+                if (!dryRun)
+                    UserVoiceSynthStore.SetIntonation(username, value.Value);
+                AppendChatLineMirrorTwitch(TagIfDry(
+                    $"[{username}] 抑揚を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。"));
                 return;
 
             case VoiceSynthSubKind.Volume:
@@ -538,15 +544,17 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                UserVoiceSynthStore.SetVolume(username, value.Value);
-                AppendChatLineMirrorTwitch(
-                    $"[{username}] 音量を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。");
+                if (!dryRun)
+                    UserVoiceSynthStore.SetVolume(username, value.Value);
+                AppendChatLineMirrorTwitch(TagIfDry(
+                    $"[{username}] 音量を {value.Value:0.##} にしました（個人設定。オプションのキャラ設定より優先）。"));
                 return;
 
             case VoiceSynthSubKind.Reset:
-                UserVoiceSynthStore.Clear(username);
-                AppendChatLineMirrorTwitch(
-                    $"[{username}] 個人の合成パラメータをリセットしました（キャラのオプション設定のみ反映）。");
+                if (!dryRun)
+                    UserVoiceSynthStore.Clear(username);
+                AppendChatLineMirrorTwitch(TagIfDry(
+                    $"[{username}] 個人の合成パラメータをリセットしました（キャラのオプション設定のみ反映）。"));
                 return;
 
             case VoiceSynthSubKind.Show:
@@ -558,8 +566,8 @@ public partial class MainWindow : Window
                 var pi = m?.PitchScale ?? VoiceCharacterSynthDefaults.PitchScale;
                 var iu = m?.IntonationScale ?? VoiceCharacterSynthDefaults.IntonationScale;
                 var vo = m?.VolumeScale ?? VoiceCharacterSynthDefaults.VolumeScale;
-                AppendChatLineMirrorTwitch(
-                    $"[{username}] 話速{sp:0.##} 音高{pi:0.##} 抑揚{iu:0.##} 音量{vo:0.##}（キャラのオプションと個人の上書きを反映した値）");
+                AppendChatLineMirrorTwitch(TagIfDry(
+                    $"[{username}] 話速{sp:0.##} 音高{pi:0.##} 抑揚{iu:0.##} 音量{vo:0.##}（キャラのオプションと個人の上書きを反映した値）"));
                 return;
             }
 
@@ -583,50 +591,9 @@ public partial class MainWindow : Window
                 return true;
             }
 
-            Dispatcher.Invoke(() => HandleVoiceSynthCommand(username, synthKind, synthValue, synthBadNum));
-            return true;
-        }
-
-        if (IsBroadcasterUsername(username))
-        {
             Dispatcher.Invoke(() =>
-            {
-                if (arg == null || arg.Equals("help", StringComparison.OrdinalIgnoreCase) || arg.Trim() == "?")
-                {
-                    AppendChatLineMirrorTwitch(
-                        "[配信者] 声は「ツール」→「オプション」→「Twitch」で選びます（視聴者の !voice / !style とは別です）。");
-                    AppendVoiceCommandHelp();
-                    return;
-                }
-
-                var firstToken = arg.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-                if (firstToken.Equals("list", StringComparison.OrdinalIgnoreCase) || firstToken == "一覧")
-                {
-                    if (kind == VoiceCommandKind.Voice)
-                    {
-                        AppendChatLineMirrorTwitch(
-                            "[配信者] 話者キャラはオプションの「Twitch」→「配信者のチャットの声」で選びます。視聴者向けの一覧は !voice list です。");
-                    }
-                    else
-                    {
-                        AppendChatLineMirrorTwitch(
-                            "[配信者] スタイルはオプションの「Twitch」タブのプルダウンから選んでください。視聴者向けは !style list です。");
-                    }
-
-                    return;
-                }
-
-                if (kind == VoiceCommandKind.Voice)
-                {
-                    AppendChatLineMirrorTwitch(
-                        "[配信者] 話者キャラは「ツール」→「オプション」→「Twitch」→「配信者のチャットの声」から選んでください。");
-                }
-                else
-                {
-                    AppendChatLineMirrorTwitch(
-                        "[配信者] スタイルは「ツール」→「オプション」→「Twitch」→「配信者のチャットの声」から選んでください。");
-                }
-            });
+                HandleVoiceSynthCommand(username, synthKind, synthValue, synthBadNum,
+                    IsBroadcasterUsername(username)));
             return true;
         }
 
@@ -638,10 +605,18 @@ public partial class MainWindow : Window
             return true;
         }
 
+        var dryRun = IsBroadcasterUsername(username);
+
         Dispatcher.Invoke(() =>
         {
             if (arg == null || arg.Equals("help", StringComparison.OrdinalIgnoreCase) || arg.Trim() == "?")
             {
+                if (dryRun)
+                {
+                    AppendChatLineMirrorTwitch(
+                        "[配信者] チャットの応答は視聴者と同じ形式で試せます（試行のため保存されません。配信の声はオプションの「Twitch」で選びます）。");
+                }
+
                 AppendVoiceCommandHelp();
                 return;
             }
@@ -656,24 +631,35 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    foreach (var line in _userSpeakers.GetStyleListLines(username, _speakerStylesByCharacter))
-                        AppendChatLineMirrorTwitch($"[{username}] {line}");
+                    var styleLines = _userSpeakers.GetStyleListLines(username, _speakerStylesByCharacter, dryRun);
+                    if (dryRun && styleLines.Count == 0)
+                    {
+                        AppendChatLineMirrorTwitch(
+                            $"[{username}] 視聴者としての声の割当がまだないため、!style list は空です。読み上げが走ると割当が作られます。");
+                    }
+                    else
+                    {
+                        foreach (var line in styleLines)
+                            AppendChatLineMirrorTwitch($"[{username}] {line}");
+                    }
                 }
 
                 return;
             }
 
+            static string TagOk(bool dr) => dr ? " ※試行のみ（保存されません）" : "";
+
             if (kind == VoiceCommandKind.Voice)
             {
-                if (_userSpeakers.TrySetCharacter(username, arg, _speakerStylesByCharacter, out var msg))
-                    AppendChatLineMirrorTwitch($"[{username}] {msg}");
+                if (_userSpeakers.TrySetCharacter(username, arg, _speakerStylesByCharacter, dryRun, out var msg))
+                    AppendChatLineMirrorTwitch($"[{username}] {msg}{TagOk(dryRun)}");
                 else
                     AppendChatLineMirrorTwitch($"[{username}] {msg}");
             }
             else
             {
-                if (_userSpeakers.TrySetStyle(username, arg, _speakerStylesByCharacter, out var msg))
-                    AppendChatLineMirrorTwitch($"[{username}] {msg}");
+                if (_userSpeakers.TrySetStyle(username, arg, _speakerStylesByCharacter, dryRun, out var msg))
+                    AppendChatLineMirrorTwitch($"[{username}] {msg}{TagOk(dryRun)}");
                 else
                     AppendChatLineMirrorTwitch($"[{username}] {msg}");
             }
