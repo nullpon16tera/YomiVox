@@ -10,13 +10,14 @@ public static class ChatCommandsHelpContent
     /// <summary>!voice help 応答に載せる本文（行単位・プレフィックスなし）。</summary>
     public static IReadOnlyList<string> VoiceCommandHelpBodyLines { get; } =
     [
-        "!voice ノーマル / !voice ささやき / !voice あまあま / !voice ツンツン など（同じキャラの別スタイルに切替）",
-        "!voice 1 / !voice 2 … !voice list と同じ並びの番号でスタイル指定（1 始まり）",
-        "!voice list … 自分に割当のキャラのスタイル一覧　（!style … / !よみ … も同じ）",
-        "!voice speed 1.2 / pitch 0.05 / intonation 1.0 / volume 1.0 … 自分だけの合成パラメータ（オプションのキャラ設定より優先）",
-        "!voice reset / リセット … 個人の合成パラメータをクリア　!voice show / 表示 … いま効いている合成値",
+        "!voice 四国めたん / !voice 1 … 話者キャラを変更（番号は !voice list の並び・1 始まり）",
+        "!voice list … 話者キャラの一覧",
+        "!style ノーマル / !style ささやき / !style 1 … いまのキャラのスタイル変更（!style list と同じ並び）",
+        "!style list … 自分のキャラのスタイル一覧（!よみ … も !style と同じ）",
+        "!voice speed 1.2 / pitch / intonation / volume … 自分だけの合成パラメータ（!voice のみ。オプションのキャラ設定より優先）",
+        "!voice reset / リセット … 個人の合成をクリア　!voice show / 表示 … いまの合成値",
         "!voice help / !voice ? … チャットコマンド一覧をチャットに表示",
-        "英語略: normal n, whisper w, sweet a, tsundere t, sexy s　合成: s p i v（speed pitch intonation volume）"
+        "英語略（スタイル）: normal n, whisper w, sweet a, tsundere t, sexy s　合成: s p i v（speed pitch intonation volume）"
     ];
 
     public static IReadOnlyList<string> ReadNameCommandHelpBodyLines { get; } =
@@ -32,7 +33,7 @@ public static class ChatCommandsHelpContent
         var sb = new StringBuilder();
         sb.AppendLine("━━ YomiVox：チャットコマンド一覧 ━━");
         sb.AppendLine();
-        sb.AppendLine("【読み上げ・声の変更】（!voice / !style / !よみ は同じ）");
+        sb.AppendLine("【読み上げ・声の変更】（!voice＝キャラ、!style / !よみ＝スタイル）");
         foreach (var line in VoiceCommandHelpBodyLines)
             sb.AppendLine("・" + line);
         sb.AppendLine();

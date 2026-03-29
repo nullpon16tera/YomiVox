@@ -3,7 +3,7 @@ using System.Linq;
 namespace YomiVox.Services;
 
 /// <summary>
-/// ユーザー名に VOICEVOX の「キャラ」を割り当て、スタイルは !voice で変更。
+/// ユーザー名に VOICEVOX の「キャラ」を割り当て、!voice でキャラ、!style / !よみ でスタイル変更。
 /// 割り当ては <see cref="PersistToSettings"/> で viewer_settings.json に保存し、再起動後も維持。
 /// </summary>
 public sealed class UserSpeakerMapper
@@ -115,14 +115,14 @@ public sealed class UserSpeakerMapper
             if (VoiceStyleKeyword.TryMatchByIndex(styles, keyword, out var byIndex, out var idx))
             {
                 _userToStyleName[key] = byIndex.StyleName;
-                message = $"読み上げスタイルを「{byIndex.StyleName}」に変更しました（!voice list の {idx} 番目）。";
+                message = $"読み上げスタイルを「{byIndex.StyleName}」に変更しました（!style list の {idx} 番目）。";
                 PersistToSettings();
                 return true;
             }
 
             if (!VoiceStyleKeyword.TryMatch(styles, keyword, out var matched))
             {
-                message = $"「{keyword}」に一致するスタイルがありません（!voice list で確認）。";
+                message = $"「{keyword}」に一致するスタイルがありません（!style list で確認）。";
                 return false;
             }
 
@@ -131,6 +131,77 @@ public sealed class UserSpeakerMapper
             PersistToSettings();
             return true;
         }
+    }
+
+    /// <summary>!voice list 用。話者キャラ名を style id 若い順に番号付きで。</summary>
+    public IReadOnlyList<string> GetCharacterListLines(
+        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter)
+    {
+        if (stylesByCharacter.Count == 0) return Array.Empty<string>();
+
+        var names = GetOrderedCharacterNames(stylesByCharacter);
+        return names.Select((n, i) => $"{i + 1}. {n}").ToList();
+    }
+
+    /// <summary>!voice 〇〇 で話者キャラを変更。スタイルは新キャラの既定にリセット。</summary>
+    public bool TrySetCharacter(string username, string keyword,
+        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter,
+        out string message)
+    {
+        message = "";
+        if (stylesByCharacter.Count == 0)
+        {
+            message = "話者が取得できていません。VOICEVOX を起動してから「話者を再取得」してください。";
+            return false;
+        }
+
+        var ordered = GetOrderedCharacterNames(stylesByCharacter);
+        var key = NormalizeUser(username);
+        var kw = keyword.Trim();
+
+        lock (_lock)
+        {
+            if (!ResolveCharacterKeyword(kw, stylesByCharacter, ordered, out var canonChar))
+            {
+                message = $"「{kw}」に一致する話者がありません（!voice list で確認）。";
+                return false;
+            }
+
+            if (_userToCharacter.TryGetValue(key, out var cur) &&
+                cur.Equals(canonChar, StringComparison.OrdinalIgnoreCase))
+            {
+                message = $"すでに話者は「{canonChar}」です。";
+                return true;
+            }
+
+            var styles = stylesByCharacter[canonChar];
+            var defaultStyle = FindDefaultStyleName(styles);
+            _userToCharacter[key] = canonChar;
+            _userToStyleName[key] = defaultStyle;
+            PersistToSettings();
+            message = $"話者を「{canonChar}」に変更しました（スタイルは「{defaultStyle}」に合わせました）。";
+            return true;
+        }
+    }
+
+    private static bool ResolveCharacterKeyword(string kw,
+        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter,
+        IReadOnlyList<string> orderedNames, out string canonChar)
+    {
+        canonChar = "";
+        if (VoiceCharacterKeyword.TryMatchByIndex(orderedNames, kw, out var byIdx, out _))
+        {
+            canonChar = byIdx;
+            return true;
+        }
+
+        return TryFindCharacterKey(kw, stylesByCharacter, out canonChar);
+    }
+
+    private static List<string> GetOrderedCharacterNames(
+        IReadOnlyDictionary<string, IReadOnlyList<VoicevoxSpeakerStyle>> stylesByCharacter)
+    {
+        return stylesByCharacter.OrderBy(kv => kv.Value.Min(s => s.Id)).Select(kv => kv.Key).ToList();
     }
 
     public IReadOnlyList<string> GetStyleListLines(string username,

@@ -108,7 +108,7 @@ public partial class MainWindow : Window
             }
 
             AppendChatLine(
-                $"VOICEVOX: 話者キャラ {grouped.Count} 種を取得しました（視聴者のキャラ・スタイルは保存され、次回起動後も継続。初回のみランダム。!voice で変更）。");
+                $"VOICEVOX: 話者キャラ {grouped.Count} 種を取得しました（視聴者のキャラ・スタイルは保存され、次回起動後も継続。初回のみランダム。!voice でキャラ、!style でスタイル）。");
             if (_uiReady) SaveChannelOnly();
         }
         catch (Exception ex)
@@ -570,9 +570,10 @@ public partial class MainWindow : Window
 
     private bool TryHandleVoiceCommand(string username, string message)
     {
-        if (!VoiceCommandParser.TryParse(message, out var arg)) return false;
+        if (!VoiceCommandParser.TryParse(message, out var arg, out var kind)) return false;
 
-        if (VoiceSynthChatCommandParser.TryParse(arg, out var synthKind, out var synthValue, out var synthBadNum))
+        if (kind == VoiceCommandKind.Voice &&
+            VoiceSynthChatCommandParser.TryParse(arg, out var synthKind, out var synthValue, out var synthBadNum))
         {
             if (IsChatBotUsername(username))
             {
@@ -593,7 +594,7 @@ public partial class MainWindow : Window
                 if (arg == null || arg.Equals("help", StringComparison.OrdinalIgnoreCase) || arg.Trim() == "?")
                 {
                     AppendChatLineMirrorTwitch(
-                        "[配信者] 声は「ツール」→「オプション」→「Twitch」→「配信者のチャットの声」で選びます（視聴者の !voice とは別です）。");
+                        "[配信者] 声は「ツール」→「オプション」→「Twitch」で選びます（視聴者の !voice / !style とは別です）。");
                     AppendVoiceCommandHelp();
                     return;
                 }
@@ -601,13 +602,30 @@ public partial class MainWindow : Window
                 var firstToken = arg.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
                 if (firstToken.Equals("list", StringComparison.OrdinalIgnoreCase) || firstToken == "一覧")
                 {
-                    AppendChatLineMirrorTwitch(
-                        "[配信者] スタイルはオプションの「Twitch」タブのプルダウンから選んでください。視聴者向けの一覧表示は !voice list とは別です。");
+                    if (kind == VoiceCommandKind.Voice)
+                    {
+                        AppendChatLineMirrorTwitch(
+                            "[配信者] 話者キャラはオプションの「Twitch」→「配信者のチャットの声」で選びます。視聴者向けの一覧は !voice list です。");
+                    }
+                    else
+                    {
+                        AppendChatLineMirrorTwitch(
+                            "[配信者] スタイルはオプションの「Twitch」タブのプルダウンから選んでください。視聴者向けは !style list です。");
+                    }
+
                     return;
                 }
 
-                AppendChatLineMirrorTwitch(
-                    "[配信者] スタイル変更は「ツール」→「オプション」→「Twitch」→「配信者のチャットの声」から行ってください。");
+                if (kind == VoiceCommandKind.Voice)
+                {
+                    AppendChatLineMirrorTwitch(
+                        "[配信者] 話者キャラは「ツール」→「オプション」→「Twitch」→「配信者のチャットの声」から選んでください。");
+                }
+                else
+                {
+                    AppendChatLineMirrorTwitch(
+                        "[配信者] スタイルは「ツール」→「オプション」→「Twitch」→「配信者のチャットの声」から選んでください。");
+                }
             });
             return true;
         }
@@ -616,7 +634,7 @@ public partial class MainWindow : Window
         {
             Dispatcher.Invoke(() =>
                 AppendChatLineMirrorTwitch(
-                    "[ボット] 読み上げ声は「ツール」→「オプション」→「Twitch」→「チャットボットの声」で固定しています（!voice は使えません）。"));
+                    "[ボット] 読み上げ声は「ツール」→「オプション」→「Twitch」→「チャットボットの声」で固定しています（!voice / !style は使えません）。"));
             return true;
         }
 
@@ -631,15 +649,34 @@ public partial class MainWindow : Window
             var firstToken = arg.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
             if (firstToken.Equals("list", StringComparison.OrdinalIgnoreCase) || firstToken == "一覧")
             {
-                foreach (var line in _userSpeakers.GetStyleListLines(username, _speakerStylesByCharacter))
-                    AppendChatLineMirrorTwitch($"[{username}] {line}");
+                if (kind == VoiceCommandKind.Voice)
+                {
+                    foreach (var line in _userSpeakers.GetCharacterListLines(_speakerStylesByCharacter))
+                        AppendChatLineMirrorTwitch($"[{username}] {line}");
+                }
+                else
+                {
+                    foreach (var line in _userSpeakers.GetStyleListLines(username, _speakerStylesByCharacter))
+                        AppendChatLineMirrorTwitch($"[{username}] {line}");
+                }
+
                 return;
             }
 
-            if (_userSpeakers.TrySetStyle(username, arg, _speakerStylesByCharacter, out var msg))
-                AppendChatLineMirrorTwitch($"[{username}] {msg}");
+            if (kind == VoiceCommandKind.Voice)
+            {
+                if (_userSpeakers.TrySetCharacter(username, arg, _speakerStylesByCharacter, out var msg))
+                    AppendChatLineMirrorTwitch($"[{username}] {msg}");
+                else
+                    AppendChatLineMirrorTwitch($"[{username}] {msg}");
+            }
             else
-                AppendChatLineMirrorTwitch($"[{username}] {msg}");
+            {
+                if (_userSpeakers.TrySetStyle(username, arg, _speakerStylesByCharacter, out var msg))
+                    AppendChatLineMirrorTwitch($"[{username}] {msg}");
+                else
+                    AppendChatLineMirrorTwitch($"[{username}] {msg}");
+            }
         });
         return true;
     }
